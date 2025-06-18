@@ -13,6 +13,141 @@ interface Message {
   timestamp: Date;
 }
 
+// Floating particle component
+const FloatingParticle = ({ delay = 0, duration = 20, size = 4 }) => {
+  return (
+    <motion.div
+      className="absolute rounded-full bg-gradient-to-r from-blue-400/20 to-purple-500/20 blur-sm"
+      style={{
+        width: size,
+        height: size,
+        left: `${Math.random() * 100}%`,
+        top: `${Math.random() * 100}%`,
+      }}
+      animate={{
+        y: [-20, -40, -20],
+        x: [-10, 10, -10],
+        opacity: [0.3, 0.7, 0.3],
+        scale: [1, 1.2, 1],
+      }}
+      transition={{
+        duration,
+        delay,
+        repeat: Infinity,
+        ease: "easeInOut",
+      }}
+    />
+  );
+};
+
+// Animated background shapes
+const BackgroundShapes = () => {
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {/* Large floating orbs */}
+      <motion.div
+        className="absolute w-32 h-32 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-600/10 blur-xl"
+        style={{ top: "20%", left: "10%" }}
+        animate={{
+          scale: [1, 1.1, 1],
+          opacity: [0.3, 0.5, 0.3],
+        }}
+        transition={{
+          duration: 8,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      />
+      <motion.div
+        className="absolute w-24 h-24 rounded-full bg-gradient-to-r from-purple-500/10 to-pink-500/10 blur-xl"
+        style={{ top: "60%", right: "15%" }}
+        animate={{
+          scale: [1, 1.2, 1],
+          opacity: [0.2, 0.4, 0.2],
+        }}
+        transition={{
+          duration: 10,
+          repeat: Infinity,
+          ease: "easeInOut",
+          delay: 2,
+        }}
+      />
+
+      {/* Floating particles */}
+      {Array.from({ length: 12 }).map((_, i) => (
+        <FloatingParticle
+          key={i}
+          delay={i * 2}
+          duration={15 + Math.random() * 10}
+          size={2 + Math.random() * 4}
+        />
+      ))}
+
+      {/* Subtle grid pattern */}
+      <svg
+        className="absolute inset-0 w-full h-full opacity-5"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <defs>
+          <pattern
+            id="grid"
+            width="40"
+            height="40"
+            patternUnits="userSpaceOnUse"
+          >
+            <path
+              d="M 40 0 L 0 0 0 40"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1"
+            />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)" />
+      </svg>
+    </div>
+  );
+};
+
+// Pulsing chat bubble animation
+const PulsingChatBubble = () => {
+  return (
+    <motion.div
+      className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1 }}
+    >
+      <motion.div
+        className="w-16 h-16 rounded-full border-2 border-blue-400/30"
+        animate={{
+          scale: [1, 1.2, 1],
+          opacity: [0.3, 0.6, 0.3],
+        }}
+        transition={{
+          duration: 3,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      >
+        <motion.div
+          className="w-full h-full rounded-full border-2 border-purple-400/20"
+          animate={{
+            scale: [1, 0.8, 1],
+            opacity: [0.5, 0.8, 0.5],
+          }}
+          transition={{
+            duration: 3,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 0.5,
+          }}
+        />
+      </motion.div>
+    </motion.div>
+  );
+};
+
 const ChatInterface = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -69,44 +204,107 @@ const ChatInterface = () => {
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-gradient-to-b from-gray-900 to-gray-800 rounded-lg overflow-hidden">
-      <div className="flex-1 p-4 overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-gradient-to-b from-gray-900 to-gray-800 rounded-lg overflow-hidden relative">
+      {/* Animated background elements */}
+      <BackgroundShapes />
+
+      {/* Show pulsing chat bubble when no messages */}
+      {messages.length === 0 && <PulsingChatBubble />}
+
+      <div className="flex-1 p-4 overflow-hidden relative z-10">
         <ScrollArea className="h-full pr-4">
           <div className="space-y-4 pb-4">
+            {/* Welcome message with animation when no messages */}
+            {messages.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5, duration: 0.8 }}
+                className="flex justify-center items-center h-full min-h-[200px]"
+              >
+                <div className="text-center space-y-4">
+                  <motion.div
+                    animate={{
+                      scale: [1, 1.05, 1],
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  >
+                    <h3 className="text-lg font-semibold text-white/80 mb-2">
+                      Welcome to Finotes Chat
+                    </h3>
+                    <p className="text-sm text-white/60 max-w-md">
+                      Start a conversation about your finances. Ask questions,
+                      get insights, or just chat about your spending habits.
+                    </p>
+                  </motion.div>
+                </div>
+              </motion.div>
+            )}
+
             <AnimatePresence>
-              {messages.map((message) => (
+              {messages.map((message, index) => (
                 <motion.div
                   key={message.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3 }}
+                  initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{
+                    duration: 0.4,
+                    delay: index * 0.1,
+                    type: "spring",
+                    stiffness: 200,
+                    damping: 20,
+                  }}
                   className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}
                 >
-                  <Card
-                    className={`max-w-[80%] p-3 ${message.sender === "user" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"} rounded-2xl shadow-md`}
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
                   >
-                    <div className="flex flex-col">
-                      <p className="text-sm">{message.text}</p>
-                      <span className="text-xs opacity-70 mt-1 text-right">
-                        {formatTime(message.timestamp)}
-                      </span>
-                    </div>
-                  </Card>
+                    <Card
+                      className={`max-w-[80%] p-3 ${message.sender === "user" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "bg-secondary text-secondary-foreground shadow-lg shadow-secondary/20"} rounded-2xl backdrop-blur-sm border border-white/10`}
+                    >
+                      <div className="flex flex-col">
+                        <p className="text-sm">{message.text}</p>
+                        <span className="text-xs opacity-70 mt-1 text-right">
+                          {formatTime(message.timestamp)}
+                        </span>
+                      </div>
+                    </Card>
+                  </motion.div>
                 </motion.div>
               ))}
             </AnimatePresence>
 
             {isLoading && (
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
                 className="flex justify-start"
               >
-                <Card className="bg-secondary text-secondary-foreground p-4 rounded-2xl shadow-md">
+                <Card className="bg-secondary text-secondary-foreground p-4 rounded-2xl shadow-md backdrop-blur-sm border border-white/10">
                   <div className="flex items-center space-x-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm">Thinking...</span>
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{
+                        duration: 1,
+                        repeat: Infinity,
+                        ease: "linear",
+                      }}
+                    >
+                      <Loader2 className="h-4 w-4" />
+                    </motion.div>
+                    <motion.span
+                      className="text-sm"
+                      animate={{ opacity: [0.5, 1, 0.5] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                    >
+                      Thinking...
+                    </motion.span>
                   </div>
                 </Card>
               </motion.div>
@@ -118,28 +316,51 @@ const ChatInterface = () => {
         </ScrollArea>
       </div>
 
-      <div className="p-4 border-t border-gray-700 bg-gray-900/50">
-        <div className="flex space-x-2">
-          <Input
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyPress}
-            placeholder="Type your message here..."
-            className="flex-1 bg-gray-800 border-gray-700 focus:border-primary text-white"
-          />
-          <Button
-            onClick={handleSendMessage}
-            disabled={inputValue.trim() === "" || isLoading}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+      <div className="p-4 border-t border-gray-700/50 bg-gray-900/70 backdrop-blur-sm relative z-10">
+        <motion.div
+          className="flex space-x-2"
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+          <motion.div className="flex-1">
+            <Input
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyPress}
+              placeholder="Type your message here..."
+              className="bg-gray-800/80 border-gray-700/50 focus:border-primary text-white backdrop-blur-sm transition-all duration-200 focus:shadow-lg focus:shadow-primary/20"
+            />
+          </motion.div>
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
           >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-            <span className="sr-only">Send message</span>
-          </Button>
-        </div>
+            <Button
+              onClick={handleSendMessage}
+              disabled={inputValue.trim() === "" || isLoading}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all duration-200"
+            >
+              {isLoading ? (
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                >
+                  <Loader2 className="h-4 w-4" />
+                </motion.div>
+              ) : (
+                <motion.div
+                  whileHover={{ x: 2 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                >
+                  <Send className="h-4 w-4" />
+                </motion.div>
+              )}
+              <span className="sr-only">Send message</span>
+            </Button>
+          </motion.div>
+        </motion.div>
       </div>
     </div>
   );
