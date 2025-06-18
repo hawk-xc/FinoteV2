@@ -19,38 +19,38 @@ const Home = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
+    <div className="min-h-screen text-white bg-gradient-to-b from-gray-900 to-gray-800">
       {/* Mobile Header */}
       <header className="flex items-center justify-between p-4 md:hidden">
         <div className="flex items-center">
-          <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+          <h1 className="text-xl font-bold text-transparent bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text">
             Finotes
           </h1>
         </div>
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="text-white">
-              <Menu className="h-6 w-6" />
+              <Menu className="w-6 h-6" />
             </Button>
           </SheetTrigger>
           <SheetContent
             side="right"
-            className="bg-gray-800 border-gray-700 text-white"
+            className="text-white bg-gray-800 border-gray-700"
           >
             <nav className="flex flex-col gap-4 mt-8">
-              <Button
-                variant={activeTab === "expenses" ? "default" : "ghost"}
-                className="justify-start"
-                onClick={() => setActiveTab("expenses")}
-              >
-                Expenses
-              </Button>
               <Button
                 variant={activeTab === "chat" ? "default" : "ghost"}
                 className="justify-start"
                 onClick={() => setActiveTab("chat")}
               >
                 Chat
+              </Button>
+              <Button
+                variant={activeTab === "expenses" ? "default" : "ghost"}
+                className="justify-start"
+                onClick={() => setActiveTab("expenses")}
+              >
+                Expenses
               </Button>
               <Button
                 variant={activeTab === "profile" ? "default" : "ghost"}
@@ -67,13 +67,13 @@ const Home = () => {
       {/* Desktop Layout */}
       <Layout>
         {/* Desktop Navigation */}
-        <div className="hidden md:block mb-6">
+        <div className="hidden mb-6 md:block">
           <Tabs
             defaultValue={activeTab}
             onValueChange={setActiveTab}
             className="w-full"
           >
-            <TabsList className="grid grid-cols-3 w-full max-w-md mx-auto bg-gray-800">
+            <TabsList className="grid w-full max-w-md grid-cols-3 mx-auto bg-gray-800">
               <TabsTrigger value="expenses">Expenses</TabsTrigger>
               <TabsTrigger value="chat">Chat</TabsTrigger>
               <TabsTrigger value="profile">Profile</TabsTrigger>
@@ -89,10 +89,10 @@ const Home = () => {
             animate="visible"
             exit="exit"
             variants={tabVariants}
-            className="w-full max-w-6xl mx-auto px-4 pb-8"
+            className="w-full max-w-6xl px-4 pb-8 mx-auto"
           >
-            {activeTab === "expenses" && <ExpenseTracker />}
             {activeTab === "chat" && <ChatInterface />}
+            {activeTab === "expenses" && <ExpenseTracker />}
             {activeTab === "profile" && <UserProfile />}
           </motion.div>
         </AnimatePresence>

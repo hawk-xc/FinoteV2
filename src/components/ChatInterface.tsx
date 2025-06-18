@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Loader2 } from "lucide-react";
@@ -5,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
+// firestore
+import { db } from '@/lib/firebaseConfig';
+import { collection, addDoc } from 'firebase/firestore';
 
 interface Message {
   id: string;
@@ -113,13 +118,13 @@ const BackgroundShapes = () => {
 const PulsingChatBubble = () => {
   return (
     <motion.div
-      className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+      className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-none top-1/2 left-1/2"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 1 }}
     >
       <motion.div
-        className="w-16 h-16 rounded-full border-2 border-blue-400/30"
+        className="w-16 h-16 border-2 rounded-full border-blue-400/30"
         animate={{
           scale: [1, 1.2, 1],
           opacity: [0.3, 0.6, 0.3],
@@ -131,7 +136,7 @@ const PulsingChatBubble = () => {
         }}
       >
         <motion.div
-          className="w-full h-full rounded-full border-2 border-purple-400/20"
+          className="w-full h-full border-2 rounded-full border-purple-400/20"
           animate={{
             scale: [1, 0.8, 1],
             opacity: [0.5, 0.8, 0.5],
@@ -163,7 +168,7 @@ const ChatInterface = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (inputValue.trim() === "") return;
 
     // Add user message
@@ -177,6 +182,12 @@ const ChatInterface = () => {
     setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
     setIsLoading(true);
+
+    try {
+      const docRef = await addDoc(collection(db, 'user_chat'), { message: inputValue });
+    } catch (e) {
+      console.error(e);
+    }
 
     // Simulate assistant response after delay
     setTimeout(() => {
@@ -204,16 +215,16 @@ const ChatInterface = () => {
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-gradient-to-b from-gray-900 to-gray-800 rounded-lg overflow-hidden relative">
+    <div className="relative flex flex-col w-full h-full overflow-hidden rounded-lg bg-gradient-to-b from-gray-900 to-gray-800">
       {/* Animated background elements */}
       <BackgroundShapes />
 
       {/* Show pulsing chat bubble when no messages */}
       {messages.length === 0 && <PulsingChatBubble />}
 
-      <div className="flex-1 p-4 overflow-hidden relative z-10">
+      <div className="relative z-10 flex-1 p-4 overflow-hidden">
         <ScrollArea className="h-full pr-4">
-          <div className="space-y-4 pb-4">
+          <div className="pb-4 space-y-4">
             {/* Welcome message with animation when no messages */}
             {messages.length === 0 && (
               <motion.div
@@ -222,7 +233,7 @@ const ChatInterface = () => {
                 transition={{ delay: 0.5, duration: 0.8 }}
                 className="flex justify-center items-center h-full min-h-[200px]"
               >
-                <div className="text-center space-y-4">
+                <div className="space-y-4 text-center">
                   <motion.div
                     animate={{
                       scale: [1, 1.05, 1],
@@ -233,12 +244,11 @@ const ChatInterface = () => {
                       ease: "easeInOut",
                     }}
                   >
-                    <h3 className="text-lg font-semibold text-white/80 mb-2">
-                      Welcome to Finotes Chat
+                    <h3 className="mb-2 text-lg font-semibold text-white/80">
+                      Selamat datang di Finotes Chat
                     </h3>
-                    <p className="text-sm text-white/60 max-w-md">
-                      Start a conversation about your finances. Ask questions,
-                      get insights, or just chat about your spending habits.
+                    <p className="max-w-md text-sm text-white/60">
+                      Tulis pengeluaranmu sesukamu kapanpun dimanapun, analisa keuangan mu kapanpun dimanapun juga, Finotes siap membantu
                     </p>
                   </motion.div>
                 </div>
@@ -266,11 +276,11 @@ const ChatInterface = () => {
                     transition={{ type: "spring", stiffness: 400, damping: 25 }}
                   >
                     <Card
-                      className={`max-w-[80%] p-3 ${message.sender === "user" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "bg-secondary text-secondary-foreground shadow-lg shadow-secondary/20"} rounded-2xl backdrop-blur-sm border border-white/10`}
+                      className={`max-w-[100%] p-3 ${message.sender === "user" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "bg-secondary text-secondary-foreground shadow-lg shadow-secondary/20"} rounded-2xl backdrop-blur-sm border border-white/10`}
                     >
                       <div className="flex flex-col">
                         <p className="text-sm">{message.text}</p>
-                        <span className="text-xs opacity-70 mt-1 text-right">
+                        <span className="mt-1 text-xs text-right opacity-70">
                           {formatTime(message.timestamp)}
                         </span>
                       </div>
@@ -286,7 +296,7 @@ const ChatInterface = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className="flex justify-start"
               >
-                <Card className="bg-secondary text-secondary-foreground p-4 rounded-2xl shadow-md backdrop-blur-sm border border-white/10">
+                <Card className="p-4 border shadow-md bg-secondary text-secondary-foreground rounded-2xl backdrop-blur-sm border-white/10">
                   <div className="flex items-center space-x-2">
                     <motion.div
                       animate={{ rotate: 360 }}
@@ -296,7 +306,7 @@ const ChatInterface = () => {
                         ease: "linear",
                       }}
                     >
-                      <Loader2 className="h-4 w-4" />
+                      <Loader2 className="w-4 h-4" />
                     </motion.div>
                     <motion.span
                       className="text-sm"
@@ -316,7 +326,7 @@ const ChatInterface = () => {
         </ScrollArea>
       </div>
 
-      <div className="p-4 border-t border-gray-700/50 bg-gray-900/70 backdrop-blur-sm relative z-10">
+      <div className="relative z-10 p-4 border-t border-gray-700/50 bg-gray-900/70 backdrop-blur-sm">
         <motion.div
           className="flex space-x-2"
           initial={{ y: 20, opacity: 0 }}
@@ -328,8 +338,8 @@ const ChatInterface = () => {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyPress}
-              placeholder="Type your message here..."
-              className="bg-gray-800/80 border-gray-700/50 focus:border-primary text-white backdrop-blur-sm transition-all duration-200 focus:shadow-lg focus:shadow-primary/20"
+              placeholder="Tulis pesanmu disini bray..."
+              className="text-white transition-all duration-200 bg-gray-800/80 border-gray-700/50 focus:border-primary backdrop-blur-sm focus:shadow-lg focus:shadow-primary/20"
             />
           </motion.div>
           <motion.div
@@ -340,21 +350,21 @@ const ChatInterface = () => {
             <Button
               onClick={handleSendMessage}
               disabled={inputValue.trim() === "" || isLoading}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all duration-200"
+              className="transition-all duration-200 shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground shadow-primary/20"
             >
               {isLoading ? (
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                 >
-                  <Loader2 className="h-4 w-4" />
+                  <Loader2 className="w-4 h-4" />
                 </motion.div>
               ) : (
                 <motion.div
                   whileHover={{ x: 2 }}
                   transition={{ type: "spring", stiffness: 400, damping: 25 }}
                 >
-                  <Send className="h-4 w-4" />
+                  <Send className="w-4 h-4" />
                 </motion.div>
               )}
               <span className="sr-only">Send message</span>
