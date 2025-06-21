@@ -9,7 +9,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
 // firestore
 import { db } from '@/lib/firebaseConfig';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+
+import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
+
+// Groq-Ai SDK
+import Groq from "groq-sdk";
 
 interface Message {
   id: string;
@@ -17,6 +23,21 @@ interface Message {
   sender: "user" | "assistant";
   timestamp: Date;
 }
+
+interface FinancialRecord {
+  description: string;
+  amount: number;
+  type: 'income' | 'expense';
+  category?: string;
+  timestamp: Date;
+}
+
+// Inisialisasi Groq client
+const groq = new Groq({
+  apiKey: import.meta.env.VITE_PUBLIC_GROQ_API_KEY,
+  dangerouslyAllowBrowser: true
+});
+
 
 // Floating particle component
 const FloatingParticle = ({ delay = 0, duration = 20, size = 4 }) => {
@@ -168,10 +189,157 @@ const ChatInterface = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const queryGroqAI = async (prompt: string): Promise<string> => {
+    try {
+      const chatCompletion = await groq.chat.completions.create({
+        messages: [
+          {
+            role: "system",
+            content: `Anda adalah asisten keuangan pribadi yang membantu mencatat pemasukan dan pengeluaran. 
+            Tanggapi dengan singkat dan jelas. Jika pengguna menyebutkan nominal uang, ekstrak informasi berikut:
+            - Jenis (pemasukan/pengeluaran)
+            - Jumlah (dalam angka)
+            - Kategori (jika ada)
+            - Deskripsi
+            
+            Format respons untuk transaksi keuangan:
+            "✅ [Pemasukan] [Deskripsi] [Nominal] [Kategori (jika ada)]"
+            atau
+            "💸 [Pengeluaran] [Deskripsi] [Nominal] [Kategori (jika ada)]"
+            
+            Untuk pertanyaan umum, berikan jawaban yang membantu.`
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        model: "llama-3.3-70b-versatile",
+        temperature: 0.3,
+        max_tokens: 256
+      });
+      
+      return chatCompletion.choices[0]?.message?.content || "Maaf, saya tidak bisa memproses permintaan Anda saat ini.";
+    } catch (error) {
+      console.error("Error querying Groq AI:", error);
+      return "Maaf, terjadi kesalahan saat memproses permintaan Anda.";
+    }
+  };
+
+  const extractFinancialData = (aiResponse: string): FinancialRecord | null => {
+    const amount = extractAmountFromText(aiResponse);
+    if (amount <= 0) return null;
+
+    // Deteksi jenis transaksi
+    const isIncome = aiResponse.includes('✅');
+    const isExpense = aiResponse.includes('💸');
+    
+    // Simpan seluruh teks sebagai description
+    const fullDescription = aiResponse.trim();
+    
+    // Ekstrak kategori dengan format "Kategori: [nama_kategori]"
+    let category = 'lainnya';
+    const categoryRegex = /Kategori:\s*([^\n]+)/i;
+    const categoryMatch = aiResponse.match(categoryRegex);
+    
+    if (categoryMatch && categoryMatch[1]) {
+      category = categoryMatch[1].trim();
+    } else {
+      // Fallback: cari kata kunci kategori dalam teks
+      const commonCategories = ['makanan', 'elektronik', 'transportasi', 'hiburan', 'belanja'];
+      for (const cat of commonCategories) {
+        if (aiResponse.toLowerCase().includes(cat)) {
+          category = cat;
+          break;
+        }
+      }
+    }
+
+    return {
+      description: fullDescription,
+      amount: amount,
+      type: isIncome ? 'income' : 'expense',
+      category: category,
+      timestamp: new Date()
+    };
+  };
+
+  const saveFinancialRecord = async (record: FinancialRecord) => {
+    try {
+      // Bersihkan description dengan menghilangkan bagian kategori
+      let cleanDescription = record.description
+        .replace(new RegExp(`Kategori:\\s*${record.category}`, 'i'), '')
+        .trim();
+    
+      await addDoc(collection(db, 'financial_records'), {
+        description: cleanDescription,
+        amount: record.amount,
+        type: record.type,
+        category: record.category || 'uncategorized',
+        timestamp: serverTimestamp()
+      });
+    
+      // Simpan pesan lengkap ke user_chat
+      await addDoc(collection(db, 'user_chat'), {
+        description: record.description,
+        amount: record.amount,
+        sender: "assistant",
+        timestamp: serverTimestamp()
+      });
+    
+      return true;
+    } catch (error) {
+      console.error("Error saving financial record:", error);
+      return false;
+    }
+  };
+
+  const saveChatMessage = async (message: string, sender: 'user' | 'assistant') => {
+    try {
+      const amount = extractAmountFromText(message);
+      
+      await addDoc(collection(db, 'user_chat'), {
+        description: message,
+        amount: amount,
+        sender,
+        timestamp: new Date()
+      });
+    } catch (error) {
+      console.error("Error saving chat message:", error);
+    }
+  };
+
+  const extractAmountFromText = (text: string): number => {
+    // Mencocokkan format seperti "70.000", "70rb", "70000", dll.
+    const amountRegex = /(\d{1,3}(?:\.\d{3})*(?:,\d+)?|\d+)\s*(?:rb|ribu|jt|juta)?/i;
+    const match = text.match(amountRegex);
+    
+    if (match) {
+      let amountStr = match[1];
+      
+      // Normalisasi format angka
+      amountStr = amountStr
+        .replace(/\./g, '') // Hapus titik (format 70.000)
+        .replace(',', '.');  // Ganti koma dengan titik (format 70,000)
+      
+      const amount = parseFloat(amountStr);
+      
+      // Handle suffix seperti 'rb' atau 'juta'
+      if (match[2]) {
+        const suffix = match[2].toLowerCase();
+        if (suffix.includes('jt') || suffix.includes('juta')) return amount * 1000000;
+        if (suffix.includes('rb') || suffix.includes('ribu')) return amount * 1000;
+      }
+      
+      return amount;
+    }
+    
+    return 0; // Default jika tidak ditemukan
+  };
+
   const handleSendMessage = async () => {
     if (inputValue.trim() === "") return;
 
-    // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
       text: inputValue,
@@ -184,23 +352,32 @@ const ChatInterface = () => {
     setIsLoading(true);
 
     try {
-      const docRef = await addDoc(collection(db, 'user_chat'), { message: inputValue });
-    } catch (e) {
-      console.error(e);
-    }
+      // Simpan pesan user ke user_chat
+      await saveChatMessage(inputValue, 'user');
 
-    // Simulate assistant response after delay
-    setTimeout(() => {
+      const aiResponse = await queryGroqAI(inputValue);
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: "This is a placeholder response. In the future, this will be connected to an AI financial assistant.",
+        text: aiResponse,
         sender: "assistant",
         timestamp: new Date(),
       };
 
+      // Ekstrak dan simpan data keuangan
+      const financialRecord = extractFinancialData(aiResponse);
+      if (financialRecord) {
+        await saveFinancialRecord(financialRecord);
+      } else {
+        // Jika bukan transaksi, simpan ke user_chat saja
+        await saveChatMessage(aiResponse, 'assistant');
+      }
+
       setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      // Error handling tetap sama
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
